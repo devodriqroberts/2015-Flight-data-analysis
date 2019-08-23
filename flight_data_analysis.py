@@ -35,6 +35,7 @@ from plotly.offline import iplot, init_notebook_mode
 import plotly.graph_objs as go
 import matplotlib.pyplot as plt 
 import seaborn as sns 
+from datetime import datetime
 
 sns.set(style="whitegrid")
 # warnings.filterwarnings("ignore")
@@ -79,6 +80,18 @@ print(f'Dataframe has {airports_df.shape[0]} rows, and {airports_df.shape[1]} co
 #%% [markdown]
 # #### Flights
 #%%
+weekday_dict = {
+    1 : 'Monday',
+    2 : 'Tuesday',
+    3 : 'Wednesday',
+    4 : 'Thursday',
+    5 : 'Friday',
+    6 : 'Saturday',
+    7 : 'Sunday',
+}
+
+flights_df['DAY_OF_WEEK'] = flights_df['DAY_OF_WEEK'].map(weekday_dict)
+flights_df['flight_date'] = [datetime(year, month, day) for year, month, day in zip(flights_df.YEAR, flights_df.MONTH, flights_df.DAY)]
 flights_df.head()
 #%%
 print(f'Dataframe has {flights_df.shape[0]} rows, and {flights_df.shape[1]} columns.')
@@ -91,19 +104,81 @@ print(f'Dataframe has {flights_df.shape[0]} rows, and {flights_df.shape[1]} colu
 # Rename airline code column.
 airlines_df.rename(columns={'IATA_CODE':'AIRLINE_CODE'}, inplace=True)
 # Rename airport code column.
-airports_df.rename(columns={'IATA_CODE':'ORIGIN_AIRPORT'}, inplace=True)
+airports_df.rename(columns={'IATA_CODE':'AIRPORT_CODE'}, inplace=True)
 # Rename flights airline code column.
 flights_df.rename(columns={'AIRLINE':'AIRLINE_CODE'}, inplace=True)
+# Rename flights origin code column.
+flights_df.rename(columns={'ORIGIN_AIRPORT':'ORIGIN_AIRPORT_CODE'}, inplace=True)
+# Rename flights destination code column.
+flights_df.rename(columns={'DESTINATION_AIRPORT':'DESTINATION_AIRPORT_CODE'}, inplace=True)
+
+
 
 #%% [markdown]
-# We merge flights_df and airlines_df on 'AIRLINE' column.
+# #### We merge flights_df and airlines_df on 'AIRLINE' column.
 #%%
 combined_df = pd.merge(flights_df, airlines_df, on='AIRLINE_CODE', how='left')
 
 #%% [markdown]
-# We merge flights_df and airports_df on 'ORIGIN_AIRPORT' column.
+# #### We merge flights_df and airports_df on 'ORIGIN_AIRPORT_CODE' column.
 #%%
-combined_df = pd.merge(combined_df, airports_df, on='ORIGIN_AIRPORT', how='left')
+combined_df = pd.merge(combined_df, airports_df, left_on='ORIGIN_AIRPORT_CODE', right_on='AIRPORT_CODE', how='left')
 
+#%% [markdown]
+# #### We merge flights_df and airports_df on 'DESTINATION_AIRPORT_CODE' column.
+#%%
+combined_df = pd.merge(combined_df, airports_df, left_on='DESTINATION_AIRPORT_CODE', right_on='AIRPORT_CODE', how='left')
+
+# Caculating flight airtime
+combined_df['elapsed_time'] = combined_df['WHEELS_ON'] - combined_df['WHEELS_OFF']
+
+#%% [markdown]
+# #### There are null values throughout the CANCELLATION_REASON, AIR_SYSTEM_DELAY, SECURITY_DELAY, AIRLINE_DELAY, LATE_AIRCRAFT_DELAY, and WEATHER_DELAY columns.
+# #### I decide to fill the null values with 0.0.
 #%%
 combined_df.fillna(value=0.0, inplace=True)
+
+#%%
+combined_df.head()
+
+#%%
+# Rename origin airport meta columns.
+combined_df.rename(columns={'AIRPORT_x':'ORIGIN_AIRPORT', 
+                            'CITY_x':'ORIGIN_CITY', 
+                            'STATE_x':'ORIGIN_STATE',
+                            'COUNTRY_x':'ORIGIN_COUNTRY',
+                            'LATITUDE_x':'ORIGIN_LATITUDE',
+                            'LONGITUDE_x':'ORIGIN_LONGITUDE'}, inplace=True)
+
+#%%
+# Rename destination airport meta columns.
+combined_df.rename(columns={'AIRPORT_y':'DESTINATION_AIRPORT', 
+                            'CITY_y':'DESTINATION_CITY', 
+                            'STATE_y':'DESTINATION_STATE',
+                            'COUNTRY_y':'DESTINATION_COUNTRY',
+                            'LATITUDE_y':'DESTINATION_LATITUDE',
+                            'LONGITUDE_y':'DESTINATION_LONGITUDE'}, inplace=True)
+
+#%% [markdown]
+# ## Origin Airport Distribution
+#%%
+number_of_flights = combined_df.shape[0]
+#%%
+origin_airport_group = combined_df.groupby('ORIGIN_AIRPORT')['FLIGHT_NUMBER'].count().sort_values(ascending=False)
+
+
+#%% [markdown]
+# ## Airline Distribution
+#%%
+airline_group = combined_df.groupby('AIRLINE')['FLIGHT_NUMBER'].count().sort_values(ascending=False)
+
+
+#%%
+origin_airport_group[1:11]
+
+#%%
+airline_group[:10]
+
+
+
+#%%
